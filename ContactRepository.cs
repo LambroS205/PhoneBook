@@ -1,59 +1,152 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace PhoneBook
 {
     internal class ContactRepository
     {
-        Contact[] _contactArr; //Danh sách contact
-        int _count; //Đếm số contact
-        int _nextId; //Id Contact tiếp theo
-        int _maxTagsPerContact;
-        public ContactRepository(int numberOfContact, int maxTagsPerContact)
+        private Contact[] _contactArr; // Mảng cố định
+        private int _count;            // Số lượng phần tử hiện tại
+        private int _nextId;           // Auto-increment ID
+        private int _maxTagsPerContact;
+
+        public ContactRepository(int maxContacts, int maxTagsPerContact)
         {
-            _contactArr = new Contact[numberOfContact];
+            _contactArr = new Contact[maxContacts];
             _count = 0;
-            _nextId = 1; //Id đầu tiên bằng 1
+            _nextId = 1;
             _maxTagsPerContact = maxTagsPerContact;
         }
-        public int GetCount() //Trả về số Contact
+
+        public int GetCount() => _count;
+
+        // Tạo object nhưng chưa lưu vào mảng
+        public Contact CreateEmptyContact()
         {
-            return _count;
-        }
-        public Contact CreateNewContact()
-        {
-            Contact contact = new Contact(_nextId, _maxTagsPerContact);
-            _nextId++; //Sau khi tạo mới xong thì tăng id lên 1. Có thể dùng getCount nhưng không hay
-            return contact;
+            return new Contact(_nextId, _maxTagsPerContact);
         }
 
-        public void Add(Contact contact) //Thêm 1 contact mới
+        // (F1) Thêm Contact vào mảng
+        public void Add(Contact contact)
         {
             if (_count >= _contactArr.Length)
-            {
-                throw new Exception("Danh ba da day!");
-            }
-            for (int i = 0; i < _count; i++)
-            {
-                if (_contactArr[i].GetPhone() == contact.GetPhone())
-                    throw new Exception("Phone da ton tai!");
-            }
+                throw new Exception("Danh ba da day, khong the them moi!");
+
+            // Kiểm tra trùng SĐT trên toàn bộ danh bạ
+            if (IsPhoneExist(contact.GetPhone(), -1)) // -1 nghĩa là không loại trừ ID nào
+                throw new Exception($"So dien thoai {contact.GetPhone()} da ton tai!");
+
+            // Thêm vào mảng
             _contactArr[_count] = contact;
-            _count++; //Tăng lên 1 (contact tiếp theo)
+            _count++;
+
+            // Tăng ID cho lần sau (chỉ tăng khi thêm thành công)
+            _nextId++;
         }
 
+        // (F2) In tất cả
         public void PrintAllContacts()
         {
             if (_count == 0)
-                Console.WriteLine("Danh sach rong.");
+            {
+                Console.WriteLine("(Trong)");
+                return;
+            }
+
             for (int i = 0; i < _count; i++)
             {
                 _contactArr[i].DisplayString();
             }
         }
 
+        // (F3) Tìm kiếm đa hình
+        public void Search(string keyword)
+        {
+            bool found = false;
+            for (int i = 0; i < _count; i++)
+            {
+                // Gọi hàm Matches đã override ở Contact
+                if (_contactArr[i].Matches(keyword))
+                {
+                    _contactArr[i].DisplayString();
+                    found = true;
+                }
+            }
+
+            if (!found) Console.WriteLine("(Khong tim thay)");
+        }
+
+        // (F4) & (F5) Tìm contact theo ID để Sửa/Xóa
+        public Contact GetContactById(int id)
+        {
+            for (int i = 0; i < _count; i++)
+            {
+                if (_contactArr[i].GetId() == id)
+                    return _contactArr[i];
+            }
+            return null;
+        }
+
+        // (F5) Xóa contact
+        public void Delete(int id)
+        {
+            int index = -1;
+            // 1. Tìm vị trí
+            for (int i = 0; i < _count; i++)
+            {
+                if (_contactArr[i].GetId() == id)
+                {
+                    index = i;
+                    break;
+                }
+            }
+
+            if (index == -1)
+                throw new Exception("Khong tim thay ID de xoa.");
+
+            // 2. Dồn mảng (Shift Left)
+            // Di chuyển tất cả phần tử phía sau index lên trước 1 bước
+            for (int i = index; i < _count - 1; i++)
+            {
+                _contactArr[i] = _contactArr[i + 1];
+            }
+
+            // 3. Xóa phần tử cuối (optional, để sạch sẽ) và giảm count
+            _contactArr[_count - 1] = null;
+            _count--;
+
+            Console.WriteLine("Da xoa thanh cong.");
+        }
+
+        // (F6) Lọc theo tag
+        public void FilterByTag(string tagKeyword)
+        {
+            if (string.IsNullOrEmpty(tagKeyword)) return;
+
+            bool found = false;
+            for (int i = 0; i < _count; i++)
+            {
+                if (_contactArr[i].HasTag(tagKeyword))
+                {
+                    _contactArr[i].DisplayString();
+                    found = true;
+                }
+            }
+            if (!found) Console.WriteLine("(Khong co ket qua)");
+        }
+
+        // Helper: Kiểm tra trùng phone
+        // excludeId: Dùng khi update (nếu update chính số của mình thì ko báo lỗi)
+        public bool IsPhoneExist(string phone, int excludeId)
+        {
+            for (int i = 0; i < _count; i++)
+            {
+                if (_contactArr[i].GetId() != excludeId &&
+                    _contactArr[i].GetPhone() == phone)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
     }
 }
